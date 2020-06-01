@@ -18,8 +18,6 @@ use Service\Discount\NullObject;
 use Service\User\SecurityInterface;
 use Service\User\Security;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
-use Service\CheckoutFacade\CheckoutFacade;
-use Service\CheckoutProcess\CheckoutProcess;
 
 class Basket
 {
@@ -95,9 +93,20 @@ class Basket
      */
     public function checkout(): void
     {
-        $checkoutFacade = new CheckoutFacade(new NullObject(), new Card(), new Security($this->session), new Email());
+        // Здесь должна быть некоторая логика выбора способа платежа
+        $billing = new Card();
 
-        $this->checkoutProcess(new NullObject(), new Card(), new Security($this->session), new Email());
+        // Здесь должна быть некоторая логика получения информации о скидке
+        // пользователя
+        $discount = new NullObject();
+
+        // Здесь должна быть некоторая логика получения способа уведомления
+        // пользователя о покупке
+        $communication = new Email();
+
+        $security = new Security($this->session);
+
+        $this->checkoutProcess($discount, $billing, $security, $communication);
     }
 
     /**
@@ -116,7 +125,18 @@ class Basket
         SecurityInterface $security,
         CommunicationInterface $communication
     ): void {
-        $checkProcess = new CheckoutProcess($discount, $billing, $security, $communication);
+        $totalPrice = 0;
+        foreach ($this->getProductsInfo() as $product) {
+            $totalPrice += $product->getPrice();
+        }
+
+        $discount = $discount->getDiscount();
+        $totalPrice = $totalPrice - $totalPrice / 100 * $discount;
+
+        $billing->pay($totalPrice);
+
+        $user = $security->getUser();
+        $communication->process($user, 'checkout_template');
     }
 
     /**
